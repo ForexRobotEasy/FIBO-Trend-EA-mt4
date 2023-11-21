@@ -1,0 +1,119 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                         FIBO Trend EA mt4         |
+//|                                      Developer: Forex Robot Easy Team |
+//|                                           Site: forexroboteasy.com |
+//+------------------------------------------------------------------+
+
+// Include necessary libraries
+#include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh>
+#include <FiboTrendPRO.mqh>
+
+// Define constants
+#define DRAWDOWN_LEVEL    0.1
+#define PROFIT_THRESHOLD  100.0
+
+// Declare global variables
+CTrade trade;
+CPositionInfo position;
+CFiboTrendPRO indicator;
+
+//+------------------------------------------------------------------+
+//|                             Expert initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Initialize trade functions
+    trade.SetExpertMagicNumber(123456); 
+
+    // Set allowed drawdown level
+    trade.SetAllowedDrawdown(DRAWDOWN_LEVEL);
+
+    // Set profit threshold
+    trade.SetProfitThreshold(PROFIT_THRESHOLD);
+
+    // Initialize indicator
+    indicator.Create();
+
+    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//|                             Expert deinitialization function                         |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Destroy indicator
+    indicator.Destroy();
+}
+
+//+------------------------------------------------------------------+
+//|                             Expert tick function                         |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Loop through multiple currency pairs
+    for(int i=0; i < SymbolsTotal(); i++)
+    {
+        // Set current symbol
+        string symbol = SymbolName(i, false);
+
+        // Set current timeframe
+        ENUM_TIMEFRAMES timeframe = PERIOD_H1;
+
+        // Check if drawdown is exceeded for current symbol
+        if(position.GetDrawdown(symbol) > DRAWDOWN_LEVEL)
+        {
+            // Block new orders for other pairs
+            trade.SetBlockedPairs(trade.GetBlockedPairs() + '|' + symbol);
+        }
+        else
+        {
+            // Remove current symbol from blocked pairs
+            trade.SetBlockedPairs(StringReplace(trade.GetBlockedPairs(), '|' + symbol, '', 0));
+            
+            // Check if trade is already open for current symbol
+            if(!position.IsPositionOpen(symbol))
+            {
+                // Get FIBO Trend PRO indicator values
+                double buySignal = indicator.GetBuySignal(symbol, timeframe);
+                double sellSignal = indicator.GetSellSignal(symbol, timeframe);
+                
+                // Open trade based on indicator signals
+                if(buySignal > 0)
+                {
+                    trade.Buy(symbol, 0.1, 0, 0, 'FIBO Trend EA mt4 - Buy');
+                }
+                else if(sellSignal > 0)
+                {
+                    trade.Sell(symbol, 0.1, 0, 0, 'FIBO Trend EA mt4 - Sell');
+                }
+            }
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//|                             Expert start function                         |
+//+------------------------------------------------------------------+
+void OnStart()
+{
+    // Enable auto-trading
+    trade.TradeOperations(true);
+
+    // Enable manual trading
+    trade.ManualTrading(true);
+
+    // Create mobile trading panel
+    trade.CreateMobilePanel();
+}
+
+//+------------------------------------------------------------------+
+//|                             Expert optimization function                         |
+//+------------------------------------------------------------------+
+void OnOptimization()
+{
+    // Optimize EA settings for specific brokers
+    trade.SetOptimizationParameters('stop levels, spread, and terminal time');
+}
